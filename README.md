@@ -6,9 +6,17 @@ EasyPermissionUtil可以帮助简化权限申请的流程，同时使得代码�
 ![](https://github.com/yxping/EasyPermissionUtil/raw/master/structure.png)
 
 ## Dependency
-在项目的gradle中包括以上的lib工程，暂且如此。。。
+1.在项目的root gradle.build中
 ``` gradle
-compile project(':lib')
+allprojects {
+    repositories {
+        maven { url "https://jitpack.io" } // 加入这句话
+    }
+}
+```
+2.在lib工程下的build.gradle中
+``` gradle
+compile 'com.android.support:appcompat-v7:23.1.1'
 ```
 ## Usage
 在需要使用权限的地方前，加入以上的代码，然后做相应的处理
