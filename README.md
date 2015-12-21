@@ -16,7 +16,7 @@ allprojects {
 ```
 2.在lib工程下的build.gradle中
 ``` gradle
-compile 'com.android.support:appcompat-v7:23.1.1'
+compile 'com.github.yxping:EasyPermissionUtil:v0.0.2'
 ```
 ## Usage
 在需要使用权限的地方前，加入以上的代码，然后做相应的处理
