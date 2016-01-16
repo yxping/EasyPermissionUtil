@@ -11,8 +11,10 @@ import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -21,13 +23,30 @@ import java.util.List;
  */
 public class PermissionUtil {
 
+    public final static String TAG = "PermissionUtil";
+    public final static String ACCEPT = "accept";
+    public final static String DENIED = "denied";
+    public final static String RATIONAL = "rational";
+
     private PermissionResultCallBack mPermissionResultCallBack;
     private volatile static PermissionUtil instance;
     private int mRequestCode;
     private Context mContext;
     private Fragment mFragment;
     private List<PermissionInfo> mPermissionListNeedReq;
+    /**
+     * 被拒绝的权限列表
+     */
+    private List<PermissionInfo> mPermissionListDenied;
+    /**
+     * 被接受的权限列表
+     */
+    private List<PermissionInfo> mPermissionListAccepted;
     private String[] mPermissions;
+
+    private PermissionUtil() {
+
+    }
 
     public static PermissionUtil getInstance() {
         if (instance == null) {
@@ -42,27 +61,33 @@ public class PermissionUtil {
 
     /**
      * 用于fragment中请求权限
+     *
      * @param fragment
      * @param permissions
      * @param requestCode
      * @param callBack
      */
-    public void request(@NonNull Fragment fragment,@NonNull String[] permissions,@NonNull int requestCode, PermissionResultCallBack callBack) {
+    public void request(@NonNull Fragment fragment, @NonNull String[] permissions, @NonNull int requestCode, PermissionResultCallBack callBack) {
         this.mFragment = fragment;
         this.request(fragment.getActivity(), permissions, requestCode, callBack);
     }
 
     /**
      * 用于activity中请求权限
+     *
      * @param context
      * @param permissions
      * @param requestCode
      * @param callBack
      */
-    public void request(@NonNull Context context,@NonNull String[] permissions,@NonNull int requestCode, PermissionResultCallBack callBack) {
+    public void request(@NonNull Context context, @NonNull String[] permissions, @NonNull int requestCode, PermissionResultCallBack callBack) {
 
         if (Looper.myLooper() != Looper.getMainLooper()) {
             throw new RuntimeException("request permission only can run in MainThread!");
+        }
+
+        if (!(context instanceof Activity)) {
+            Log.e(TAG, "the first Argument of request() method shuold instance of Activity");
         }
 
         if (permissions.length == 0) {
@@ -79,11 +104,18 @@ public class PermissionUtil {
         this.mRequestCode = requestCode;
         this.mPermissionResultCallBack = callBack;
         this.mPermissionListNeedReq = new ArrayList<PermissionInfo>();
+        this.mPermissionListDenied = new ArrayList<PermissionInfo>();
+        this.mPermissionListAccepted = new ArrayList<PermissionInfo>();
 
         if (needToRequest()) {
             requestPermissions();
         } else {
-            onGranted();
+            onResult(mPermissionListAccepted, null, mPermissionListDenied);
+            if (mPermissionListDenied.isEmpty()) {
+                onGranted();
+            } else {
+                onDenied(mPermissionListDenied);
+            }
         }
     }
 
@@ -101,18 +133,23 @@ public class PermissionUtil {
 
     /**
      * 检查是否需要申请权限
+     *
      * @return
      */
+    @TargetApi(Build.VERSION_CODES.M)
     private boolean needToRequest() {
         for (String permission : mPermissions) {
             int checkRes = ContextCompat.checkSelfPermission(mContext, permission);
             if (checkRes != PackageManager.PERMISSION_GRANTED) {
                 PermissionInfo info = new PermissionInfo(permission);
-                if (mContext instanceof Activity &&
-                        ActivityCompat.shouldShowRequestPermissionRationale((Activity) mContext, permission)) {
-                    info.setRationalNeed(true);
+                if (((Activity)mContext).shouldShowRequestPermissionRationale(permission)) {
+                    mPermissionListNeedReq.add(info);
+                } else {
+                    mPermissionListDenied.add(info);
                 }
-                mPermissionListNeedReq.add(info);
+            }
+            if (checkRes == PackageManager.PERMISSION_GRANTED) {
+                mPermissionListAccepted.add(new PermissionInfo(permission));
             }
         }
 
@@ -129,6 +166,7 @@ public class PermissionUtil {
 
     /**
      * 申请权限结果返回
+     *
      * @param requestCode
      * @param permissions
      * @param grantResults
@@ -148,24 +186,29 @@ public class PermissionUtil {
 
             boolean isAllGranted = true;
             List<PermissionInfo> needRationalPermissionList = new ArrayList<PermissionInfo>();
-            List<PermissionInfo> deniedPermissionList = new ArrayList<PermissionInfo>();
+
             for (int i = 0; i < permissions.length; i++) {
                 if (grantResults[i] == PackageManager.PERMISSION_DENIED) {
-                    if (mPermissionListNeedReq.get(i).isRationalNeed()) {
-                        needRationalPermissionList.add(mPermissionListNeedReq.get(i));
+                    if (((Activity) mContext).shouldShowRequestPermissionRationale(permissions[i])) {
+                        PermissionInfo info = new PermissionInfo(permissions[i]);
+                        needRationalPermissionList.add(info);
                     } else {
-                        deniedPermissionList.add(mPermissionListNeedReq.get(i));
+                        mPermissionListDenied.add(mPermissionListNeedReq.get(i));
                     }
                     isAllGranted = false;
+                } else {
+                    mPermissionListAccepted.add(new PermissionInfo(permissions[i]));
                 }
+            }
+
+            onResult(mPermissionListAccepted, needRationalPermissionList, mPermissionListDenied);
+
+            if (mPermissionListDenied.size() != 0) {
+                onDenied(mPermissionListDenied);
             }
 
             if (needRationalPermissionList.size() != 0) {
                 showRational(needRationalPermissionList);
-            }
-
-            if (deniedPermissionList.size() != 0) {
-                onDenied(deniedPermissionList);
             }
 
             if (isAllGranted) {
@@ -173,6 +216,47 @@ public class PermissionUtil {
             }
 
         }
+    }
+
+    /**
+     * 返回所有结果的列表list,包括通过的,拒绝的,允许提醒的三个内容,各个list有可能为空
+     *
+     * @param acceptPermissionList
+     * @param needRationalPermissionList
+     * @param deniedPermissionList
+     * @return
+     */
+    private void onResult(List<PermissionInfo> acceptPermissionList,
+                          List<PermissionInfo> needRationalPermissionList,
+                          List<PermissionInfo> deniedPermissionList) {
+        HashMap<String, List<PermissionInfo>> map = new HashMap<String, List<PermissionInfo>>();
+        if (acceptPermissionList != null && !acceptPermissionList.isEmpty()) {
+            map.put(ACCEPT, acceptPermissionList);
+        }
+        if (needRationalPermissionList != null && !needRationalPermissionList.isEmpty()) {
+            map.put(RATIONAL, needRationalPermissionList);
+        }
+        if (deniedPermissionList != null && !deniedPermissionList.isEmpty()) {
+            map.put(DENIED, deniedPermissionList);
+        }
+
+        if (mPermissionResultCallBack != null) {
+            mPermissionResultCallBack.onResult(map);
+        }
+    }
+
+    /**
+     * 转换为string的list
+     *
+     * @param list
+     * @return
+     */
+    private List<String> toStringList(List<PermissionInfo> list) {
+        List<String> result = new ArrayList<String>();
+        for (PermissionInfo info : list) {
+            result.add(info.getName());
+        }
+        return result;
     }
 
     /**
@@ -187,10 +271,11 @@ public class PermissionUtil {
     /**
      * 权限申请被用户否定之后的回调方法,这个主要是当用户点击否定的同时点击了不在弹出,
      * 那么当再次申请权限,此方法会被调用
+     *
      * @param list
      */
     private void onDenied(List<PermissionInfo> list) {
-        if(list == null || list.size() == 0) return;
+        if (list == null || list.size() == 0) return;
 
         String[] permissions = new String[list.size()];
         for (int i = 0; i < list.size(); i++) {
@@ -205,10 +290,11 @@ public class PermissionUtil {
     /**
      * 权限申请被用户否定后的回调方法,这个主要场景是当用户点击了否定,但未点击不在弹出,
      * 那么当再次申请权限的时候,此方法会被调用
+     *
      * @param list
      */
     private void showRational(List<PermissionInfo> list) {
-        if(list == null || list.size() == 0) return;
+        if (list == null || list.size() == 0) return;
 
         String[] permissions = new String[list.size()];
         for (int i = 0; i < list.size(); i++) {

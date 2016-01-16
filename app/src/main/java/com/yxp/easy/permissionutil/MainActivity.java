@@ -7,8 +7,13 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import com.yxp.permission.util.lib.PermissionInfo;
+import com.yxp.permission.util.lib.PermissionResultAdapter;
 import com.yxp.permission.util.lib.PermissionResultCallBack;
 import com.yxp.permission.util.lib.PermissionUtil;
+
+import java.util.List;
+import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -48,6 +53,11 @@ public class MainActivity extends AppCompatActivity {
                                 }
                                 Toast.makeText(MainActivity.this, builder.toString() + " show Rational", Toast.LENGTH_SHORT).show();
                             }
+
+                            @Override
+                            public void onResult(Map<String, List<PermissionInfo>> result) {
+                                Toast.makeText(MainActivity.this, result.toString(), Toast.LENGTH_SHORT).show();
+                            }
                         });
             }
         });
@@ -55,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 PermissionUtil.getInstance().request(MainActivity.this, new String[]{Manifest.permission.READ_CALENDAR}, mRequestCode,
-                        new PermissionResultCallBack() {
+                        new PermissionResultAdapter() {
                             @Override
                             public void onPermissionGranted() {
                                 Toast.makeText(MainActivity.this, "single granted", Toast.LENGTH_SHORT).show();
@@ -77,6 +87,19 @@ public class MainActivity extends AppCompatActivity {
                                     builder.append(permission.substring(permission.lastIndexOf(".") + 1) + " ");
                                 }
                                 Toast.makeText(MainActivity.this, builder.toString() + " show Rational", Toast.LENGTH_SHORT).show();
+                            }
+
+                            @Override
+                            public void onResult(Map<String, List<PermissionInfo>> result) {
+                                if (result.get(PermissionUtil.DENIED) != null) {
+                                    Toast.makeText(MainActivity.this, result.get(PermissionUtil.DENIED).get(0).getShortName(), Toast.LENGTH_SHORT).show();
+                                }
+                                if (result.get(PermissionUtil.ACCEPT) != null) {
+                                    Toast.makeText(MainActivity.this, result.get(PermissionUtil.ACCEPT).get(0).getShortName(), Toast.LENGTH_SHORT).show();
+                                }
+                                if (result.get(PermissionUtil.RATIONAL) != null) {
+                                    Toast.makeText(MainActivity.this, result.get(PermissionUtil.RATIONAL).get(0).getShortName(), Toast.LENGTH_SHORT).show();
+                                }
                             }
                         });
             }

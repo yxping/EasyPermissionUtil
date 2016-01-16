@@ -5,26 +5,23 @@ package com.yxp.permission.util.lib;
  */
 public class PermissionInfo {
     private String mName;
-    private boolean mRationalNeed;
+    private String mShortName;
 
     public PermissionInfo(String name) {
         this.mName = name;
-        mRationalNeed = false;
+        this.mShortName = name.substring(name.lastIndexOf(".") + 1);
     }
 
     public String getName() {
         return mName;
     }
 
-    public boolean isRationalNeed() {
-        return mRationalNeed;
-    }
 
     public void setName(String mName) {
         this.mName = mName;
     }
 
-    public void setRationalNeed(boolean mRationalNeed) {
-        this.mRationalNeed = mRationalNeed;
+    public String getShortName() {
+        return mShortName;
     }
 }
