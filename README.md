@@ -16,28 +16,60 @@ allprojects {
 ```
 2.在lib工程下的build.gradle中
 ``` gradle
-compile 'com.github.yxping:EasyPermissionUtil:v0.0.2'
+compile 'com.github.yxping:EasyPermissionUtil:v0.0.3'
 ```
 ## Usage
-在需要使用权限的地方前，加入以上的代码，然后做相应的处理
+``` java
+PermissionUtil.getInstance().request(MainActivity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.READ_CONTACTS, Manifest.permission.READ_SMS}, mRequestCode,
+    new PermissionResultCallBack() {
+        /**
+         * 当所有权限的申请被用户同意之后,该方法会被调用
+         */
+        void onPermissionGranted();
+
+        /**
+         * 当权限申请中的某一个或多个权限,在此次申请中被用户否定了,并勾选了不再提醒选项时（权限的申请窗口不能再弹出，
+         * 没有办法再次申请）,该方法将会被调用。该方法调用时机在onRationalShow之前.onDenied和onRationalShow
+         * 有可能都会被触发.
+         *
+         * @param permissions
+         */
+        void onPermissionDenied(String... permissions);
+
+        /**
+         * 当权限申请中的某一个或多个权限,在此次申请中被用户否定了,但没有勾选不再提醒选项时（权限申请窗口还能再次申请弹出）
+         * 该方法将会被调用.这个方法会在onPermissionDenied之后调用,当申请权限为多个时,onDenied和onRationalShow
+         * 有可能都会被触发.
+         *
+         * @param permissions
+         */
+        void onRationalShow(String... permissions);
+
+        /**
+         * 返回所有结果的列表list,包括通过的,拒绝的,允许提醒的三个内容,各个list有可能为空
+         * 通过PermissionUtil.ACCEPT / DENIED / RATIONAL 获取相应的list
+         * list中的元素为PermissionInfo,提供getName()[例如:android.permission.CAMERA]和getShortName()[例如:CAMERA]方法
+         * 在进行申请方法调用后,此方法一定会被调用返回此次请求后的权限申请的情况
+         *
+         * @param result
+         */
+        void onResult(Map<String, List<PermissionInfo>> result);
+    });
+```
+
+可以通过PermissionResultCallBack获得回调的结果,也可以通过PermissionResultAdapter获得回调的结果,区别是
+PermissionResultAdapter支持任意重写方法,而无需重写所有的方法.
 ``` java
 PermissionUtil.getInstance().request(MainActivity.this, new String[]{Manifest.permission.READ_CALENDAR}, mRequestCode,
-    new PermissionResultCallBack() {
+    new PermissionResultAdapter() {
         @Override
-        public void onPermissionGranted() {
-            // 当所有权限的申请被用户同意之后,该方法会被调用
-        }
+        public void onResult(Map<String, List<PermissionInfo>> result) {
 
-        @Override
-        public void onPermissionDenied(String... permissions) {
-            // 当权限申请中的某一个或多个权限,被用户曾经否定了,并确认了不再提醒时,也就是权限的申请窗口不能再弹出时,该方法将会被调用
-        }
-
-        @Override
-        public void onRationalShow(String... permissions) {
-            // 当权限申请中的某一个或多个权限,被用户否定了,但没有确认不再提醒时,也就是权限窗口申请时,但被否定了之后,该方法将会被调用.
         }
     });
 ```
+
+另外如果通过此方法进行调用,结果的返回也可以通过activity或者fragment的onRequestPermissionsResult得到结果
+
 ## Attention
 权限的请求只能在主线程中进行
