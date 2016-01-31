@@ -24,4 +24,5 @@ public class PermissionInfo {
     public String getShortName() {
         return mShortName;
     }
+
 }
