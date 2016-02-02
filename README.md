@@ -107,7 +107,7 @@ void onResult(List<PermissionInfo> acceptList, List<PermissionInfo> rationalList
 
 #### Example
 ``` java
-PermissionUtil.getInstance().request(MainActivity.this, new String[]{Manifest.permission.CAMERA, Manifest.permission.READ_CONTACTS, Manifest.permission.READ_SMS},
+PermissionUtil.getInstance().request(new String[]{Manifest.permission.CAMERA, Manifest.permission.READ_CONTACTS, Manifest.permission.READ_SMS},
     new PermissionResultCallBack() {
         void onPermissionGranted();
         void onPermissionGranted(String... permissions);
@@ -119,7 +119,7 @@ PermissionUtil.getInstance().request(MainActivity.this, new String[]{Manifest.pe
 可以通过PermissionResultCallBack获得回调的结果,也可以通过PermissionResultAdapter获得回调的结果,区别是
 PermissionResultAdapter支持任意重写方法,而无需重写所有的方法.
 ``` java
-PermissionUtil.getInstance().request(MainActivity.this, new String[]{Manifest.permission.READ_CALENDAR}, mRequestCode,
+PermissionUtil.getInstance().request(new String[]{Manifest.permission.READ_CALENDAR}, mRequestCode,
     new PermissionResultAdapter() {
         @Override
         public void onResult(Map<String, List<PermissionInfo>> result) {
